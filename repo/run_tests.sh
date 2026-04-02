@@ -97,8 +97,24 @@ else
   echo ""
   echo "[4/4] Checking for running backend..."
   STACK_URL="${BASE_URL:-http://localhost:5173}"
+  STARTED_STACK=false
+
+  # If no backend running but docker compose is available, start the stack for E2E
+  if ! curl -sf --max-time 5 "${STACK_URL}/api/health" > /dev/null 2>&1; then
+    if command -v docker > /dev/null 2>&1 && [ -f "docker-compose.yml" ]; then
+      echo "  Starting stack with RATE_LIMIT_DISABLED=true for E2E..."
+      RATE_LIMIT_DISABLED=true docker compose up -d --build --wait 2>&1 || true
+      STARTED_STACK=true
+      # Wait for health
+      for i in $(seq 1 30); do
+        if curl -sf --max-time 3 "${STACK_URL}/api/health" > /dev/null 2>&1; then break; fi
+        sleep 2
+      done
+    fi
+  fi
+
   if curl -sf --max-time 5 "${STACK_URL}/api/health" > /dev/null 2>&1; then
-    echo "  Backend detected at ${STACK_URL} — running full-stack E2E..."
+    echo "  Backend ready at ${STACK_URL} — running full-stack E2E..."
     export FULL_STACK=true
     export BASE_URL="${STACK_URL}"
     if npm run test:e2e 2>&1; then
@@ -109,7 +125,12 @@ else
     fi
   else
     echo "  Backend not reachable — skipping full-stack E2E."
-    echo "  (Start with: docker compose up -d)"
+  fi
+
+  # Tear down stack if we started it
+  if [ "${STARTED_STACK}" = "true" ]; then
+    echo "  Stopping stack..."
+    docker compose down -v 2>&1 || true
   fi
 fi
 

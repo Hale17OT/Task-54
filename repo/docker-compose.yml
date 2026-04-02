@@ -43,6 +43,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       RUN_MIGRATIONS: 'true'
       RUN_SEED: ${RUN_SEED:-true}
+      RATE_LIMIT_DISABLED: ${RATE_LIMIT_DISABLED:-false}
     ports:
       - '${API_PORT:-3000}:3000'
     volumes:
