@@ -1,0 +1,7 @@
+{
+  "extends": ["../../.eslintrc.json", "plugin:react-hooks/recommended"],
+  "plugins": ["react-hooks"],
+  "env": {
+    "browser": true
+  }
+}

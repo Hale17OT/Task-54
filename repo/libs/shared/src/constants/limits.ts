@@ -1,0 +1,33 @@
+export const AUTH_LIMITS = {
+  MIN_PASSWORD_LENGTH: 12,
+  MAX_LOGIN_ATTEMPTS: 5,
+  LOCKOUT_DURATION_MINUTES: 15,
+} as const;
+
+export const RATE_LIMITS = {
+  DEFAULT_REQUESTS_PER_MINUTE: 30,
+  DEFAULT_WINDOW_SECONDS: 60,
+} as const;
+
+export const ORDER_LIMITS = {
+  AUTO_CANCEL_MINUTES: 30,
+  AUTO_CANCEL_CRON_INTERVAL_MINUTES: 5,
+} as const;
+
+export const SEAT_LIMITS = {
+  RESERVATION_TTL_MINUTES: 60,
+} as const;
+
+export const NOTIFICATION_LIMITS = {
+  MAX_REMINDERS_PER_ITEM_PER_DAY: 3,
+  ROLLING_WINDOW_HOURS: 24,
+} as const;
+
+export const HEALTH_CHECK_LIMITS = {
+  SIGNATURE_SLA_HOURS: 24,
+} as const;
+
+export const CAPTCHA_LIMITS = {
+  EXPIRY_MINUTES: 5,
+  MAX_CONSECUTIVE_FAILURES: 5,
+} as const;

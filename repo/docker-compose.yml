@@ -1,0 +1,72 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: checc-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-checc}
+      POSTGRES_USER: ${POSTGRES_USER:-checc}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-checc_dev_password}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-checc} -d ${POSTGRES_DB:-checc}']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: checc-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3000
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: ${POSTGRES_DB:-checc}
+      DATABASE_USER: ${POSTGRES_USER:-checc}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-checc_dev_password}
+      JWT_SECRET: ${JWT_SECRET:-checc_jwt_secret_dev_only_change_in_prod}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1h}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:-a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4}
+      PDF_STORAGE_PATH: /app/data/pdfs
+      MEDIA_STORAGE_PATH: /app/data/media
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      RUN_MIGRATIONS: 'true'
+      RUN_SEED: ${RUN_SEED:-true}
+    ports:
+      - '${API_PORT:-3000}:3000'
+    volumes:
+      - app-data:/app/data
+    healthcheck:
+      test: ['CMD', 'node', '-e', "require('http').get('http://localhost:3000/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: checc-web
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
+    ports:
+      - '${WEB_PORT:-5173}:80'
+
+volumes:
+  pgdata:
+  app-data:

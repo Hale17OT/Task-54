@@ -1,0 +1,80 @@
+version: '3.9'
+
+# Full test suite runner — runs API tests, Web tests, and full-stack E2E.
+# Usage: docker compose -f docker-compose.test.yml up --build --abort-on-container-exit
+#
+# Exit code 0 = all tests passed. Non-zero = at least one suite failed.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: checc_test
+      POSTGRES_USER: checc
+      POSTGRES_PASSWORD: checc_test_password
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U checc -d checc_test']
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: test
+      PORT: 3000
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: checc_test
+      DATABASE_USER: checc
+      DATABASE_PASSWORD: checc_test_password
+      JWT_SECRET: test_jwt_secret_for_docker_tests
+      JWT_EXPIRES_IN: 1h
+      JWT_REFRESH_EXPIRES_IN: 7d
+      FIELD_ENCRYPTION_KEY: test_encryption_key_32characters!
+      PDF_STORAGE_PATH: /app/data/pdfs
+      MEDIA_STORAGE_PATH: /app/data/media
+      RUN_MIGRATIONS: 'true'
+      RUN_SEED: 'true'
+      TRUST_PROXY: 'false'
+      RATE_LIMIT_DISABLED: 'true'
+    healthcheck:
+      test: ['CMD', 'node', '-e', "require('http').get('http://localhost:3000/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    depends_on:
+      api:
+        condition: service_healthy
+
+  test-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_started
+    environment:
+      # API tests need DB connection
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: checc_test
+      DATABASE_USER: checc
+      DATABASE_PASSWORD: checc_test_password
+      NODE_ENV: test
+      # E2E tests target the web container (nginx proxies to api)
+      FULL_STACK: 'true'
+      BASE_URL: 'http://web:80'

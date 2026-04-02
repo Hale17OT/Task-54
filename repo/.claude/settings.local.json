@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__query-docs",
+      "Bash(node:*)",
+      "Bash(npm --version)",
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx jest:*)",
+      "Bash(npm test:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npx playwright:*)",
+      "Bash(echo \"EXIT CODE: $?\")",
+      "Bash(chmod +x \"E:/Hale/Coding/Eaglepoint/Task-54/repo/scripts/acceptance-test.sh\")",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(chmod +x \"E:/Hale/Coding/Eaglepoint/Task-54/repo/scripts/docker-test.sh\")",
+      "Bash(docker compose:*)",
+      "Bash(docker build:*)",
+      "Bash(docker run:*)",
+      "Bash(docker builder:*)",
+      "Bash(docker image:*)",
+      "Bash(docker cp:*)",
+      "Bash(npx eslint:*)",
+      "Bash(./node_modules/.bin/eslint --version)",
+      "Bash(node_modules/.bin/eslint.cmd --version)",
+      "Bash(ls node_modules/.bin/eslint*)",
+      "Bash(npm ls:*)",
+      "Bash(find \"E:\\\\Hale\\\\Coding\\\\Eaglepoint\\\\Task-54\\\\repo\\\\apps\\\\api\\\\src\" -name \"*.ts\" -exec grep -h \"^import\\\\|^export\" {} \\\\;)",
+      "Bash(find \"E:\\\\Hale\\\\Coding\\\\Eaglepoint\\\\Task-54\\\\repo\\\\apps\\\\api\\\\src\" -name \"*.ts\" -exec grep -l \"schemas\\\\|types\" {} \\\\;)",
+      "Bash(xargs cat:*)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx|js|jsx\\)$\")",
+      "Bash(grep -E \"\\\\.\\(ts|js\\)$\")",
+      "Bash(xargs grep:*)",
+      "Bash(find:*)"
+    ]
+  }
+}
