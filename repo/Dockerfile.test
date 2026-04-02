@@ -21,31 +21,7 @@ RUN npm run build --workspace=apps/web
 # Install Playwright chromium browser
 RUN npx playwright install chromium
 
-# Default command: run all tests
-CMD ["bash", "-c", "\
-  echo '========================================' && \
-  echo '  CHECC Docker Test Suite' && \
-  echo '========================================' && \
-  echo '' && \
-  echo '--- [1/4] API Unit + Integration Tests ---' && \
-  npm run test:api && \
-  echo '' && \
-  echo '--- [2/4] Web Unit + Component Tests ---' && \
-  npm run test:web && \
-  echo '' && \
-  echo '--- [3/4] Waiting for web server ---' && \
-  for i in $(seq 1 30); do \
-    if curl -sf http://web:80 > /dev/null 2>&1; then \
-      echo '  Web server is ready'; \
-      break; \
-    fi; \
-    echo \"  Waiting... ($i/30)\"; \
-    sleep 2; \
-  done && \
-  echo '' && \
-  echo '--- [4/4] Full-Stack E2E Tests ---' && \
-  FULL_STACK=true BASE_URL=http://web:80 npm run test:e2e && \
-  echo '' && \
-  echo '========================================' && \
-  echo '  ALL TESTS PASSED' && \
-  echo '========================================'"]
+# Use the unified test runner script
+RUN chmod +x run_tests.sh
+
+CMD ["bash", "./run_tests.sh"]
