@@ -74,7 +74,7 @@ export class PricingController {
   }
 
   @Post('compute')
-  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.PATIENT)
   async computePricing(@Body() body: { lines: OrderLineInput[] }) {
     const result = await this.pricingService.computeForOrder(body.lines);
     return { data: result };

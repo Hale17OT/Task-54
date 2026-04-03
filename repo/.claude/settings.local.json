@@ -33,7 +33,9 @@
       "Bash(grep -E \"\\\\.\\(ts|tsx|js|jsx\\)$\")",
       "Bash(grep -E \"\\\\.\\(ts|js\\)$\")",
       "Bash(xargs grep:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(timeout 8 npx nest start)",
+      "Bash(timeout 8 npx nest start --watch)"
     ]
   }
 }
