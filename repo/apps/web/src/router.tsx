@@ -60,7 +60,7 @@ export const router = createBrowserRouter([
 
       // Content — Patient/Staff/Admin browse; Staff/Admin create
       { path: 'content', element: <RoleGate allowedRoles={patientAndAbove}><ArticleListPage /></RoleGate> },
-      { path: 'content/new', element: <RoleGate allowedRoles={[UserRole.ADMIN]}><ArticleCreatePage /></RoleGate> },
+      { path: 'content/new', element: <RoleGate allowedRoles={staffAndAdmin}><ArticleCreatePage /></RoleGate> },
       { path: 'content/:slug', element: <RoleGate allowedRoles={patientAndAbove}><ArticleDetailPage /></RoleGate> },
 
       // Admin — Admin only

@@ -4,6 +4,7 @@ import {
   UnauthorizedException,
   ConflictException,
   ForbiddenException,
+  NotFoundException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -11,6 +12,7 @@ import { Repository, MoreThan } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { UserEntity } from '../../../infrastructure/persistence/entities/user.entity';
 import { LoginAttemptEntity } from '../../../infrastructure/persistence/entities/login-attempt.entity';
+import { DeviceFingerprintEntity } from '../../../infrastructure/persistence/entities/device-fingerprint.entity';
 import { IUserRepository, USER_REPOSITORY } from '../ports/user.repository.port';
 import { CaptchaService } from '../../../infrastructure/security/captcha.service';
 import { AnomalyDetectorService } from './anomaly-detector.service';
@@ -30,6 +32,8 @@ export class AuthService {
     private readonly userRepo: IUserRepository,
     @InjectRepository(LoginAttemptEntity)
     private readonly loginAttemptRepo: Repository<LoginAttemptEntity>,
+    @InjectRepository(DeviceFingerprintEntity)
+    private readonly deviceFingerprintRepo: Repository<DeviceFingerprintEntity>,
     private readonly jwtService: JwtService,
     private readonly captchaService: CaptchaService,
     private readonly anomalyDetector: AnomalyDetectorService,
@@ -76,6 +80,14 @@ export class AuthService {
   }
 
   async login(input: LoginInput, ipAddress: string) {
+    // Enforce device fingerprint at authentication boundary
+    if (!input.deviceFingerprint) {
+      throw new UnauthorizedException({
+        message: 'Device fingerprint is required',
+        errorCode: ErrorCodes.INVALID_CREDENTIALS,
+      });
+    }
+
     // Server-driven CAPTCHA escalation: require CAPTCHA after suspicious activity threshold
     const recentFailedWindow = new Date(Date.now() - AUTH_LIMITS.LOCKOUT_DURATION_MINUTES * 60 * 1000);
     const recentFailedFromIp = await this.loginAttemptRepo.count({
@@ -143,9 +155,35 @@ export class AuthService {
       });
     }
 
+    // Step-up: require CAPTCHA when logging in from an untrusted device
+    if (input.deviceFingerprint) {
+      const deviceRecord = await this.deviceFingerprintRepo.findOne({
+        where: { userId: user.id, fingerprint: input.deviceFingerprint },
+      });
+
+      const isUntrustedDevice = !deviceRecord || !deviceRecord.isTrusted;
+      if (isUntrustedDevice && (!input.captchaId || !input.captchaAnswer)) {
+        // Only enforce step-up if the user has logged in from a trusted device before
+        const hasTrustedDevices = await this.deviceFingerprintRepo.count({
+          where: { userId: user.id, isTrusted: true },
+        });
+        if (hasTrustedDevices > 0) {
+          throw new ForbiddenException({
+            message: 'CAPTCHA is required when logging in from an unrecognized device',
+            errorCode: ErrorCodes.CAPTCHA_REQUIRED,
+          });
+        }
+      }
+    }
+
     // Clear any lock on successful login
     if (user.lockedUntil) {
       await this.userRepo.update(user.id, { lockedUntil: null });
+    }
+
+    // Track device fingerprint for known-device detection
+    if (input.deviceFingerprint) {
+      await this.recordDeviceFingerprint(user.id, input.deviceFingerprint);
     }
 
     const tokens = this.generateTokens(user);
@@ -183,6 +221,43 @@ export class AuthService {
     return valid ? user : null;
   }
 
+  async trustDevice(userId: string, fingerprint: string) {
+    const record = await this.deviceFingerprintRepo.findOne({
+      where: { userId, fingerprint },
+    });
+    if (!record) {
+      throw new NotFoundException({
+        message: 'Device not found',
+        errorCode: ErrorCodes.DEVICE_UNTRUSTED,
+      });
+    }
+    record.isTrusted = true;
+    await this.deviceFingerprintRepo.save(record);
+    this.logger.log(`Device trusted for user ${userId}`, 'AuthService');
+  }
+
+  async revokeDevice(userId: string, fingerprint: string) {
+    const record = await this.deviceFingerprintRepo.findOne({
+      where: { userId, fingerprint },
+    });
+    if (!record) {
+      throw new NotFoundException({
+        message: 'Device not found',
+        errorCode: ErrorCodes.DEVICE_UNTRUSTED,
+      });
+    }
+    record.isTrusted = false;
+    await this.deviceFingerprintRepo.save(record);
+    this.logger.log(`Device trust revoked for user ${userId}`, 'AuthService');
+  }
+
+  async getUserDevices(userId: string) {
+    return this.deviceFingerprintRepo.find({
+      where: { userId },
+      order: { lastSeenAt: 'DESC' },
+    });
+  }
+
   private async recordLoginAttempt(
     userId: string | null,
     ipAddress: string,
@@ -196,6 +271,26 @@ export class AuthService {
       success,
     });
     await this.loginAttemptRepo.save(attempt);
+  }
+
+  private async recordDeviceFingerprint(userId: string, fingerprint: string) {
+    const existing = await this.deviceFingerprintRepo.findOne({
+      where: { userId, fingerprint },
+    });
+
+    if (existing) {
+      existing.lastSeenAt = new Date();
+      await this.deviceFingerprintRepo.save(existing);
+    } else {
+      const record = this.deviceFingerprintRepo.create({
+        userId,
+        fingerprint,
+        firstSeenAt: new Date(),
+        lastSeenAt: new Date(),
+        isTrusted: false,
+      });
+      await this.deviceFingerprintRepo.save(record);
+    }
   }
 
   private async checkAndLockAccount(user: UserEntity) {

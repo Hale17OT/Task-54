@@ -5,7 +5,7 @@ import { UserRole } from '../constants/roles';
 export const loginSchema = z.object({
   username: z.string().min(1, 'Username is required'),
   password: z.string().min(1, 'Password is required'),
-  deviceFingerprint: z.string().optional(),
+  deviceFingerprint: z.string().min(1, 'Device fingerprint is required'),
   captchaId: z.string().uuid().optional(),
   captchaAnswer: z.string().optional(),
 });

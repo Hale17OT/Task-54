@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  unit-tests:
+    name: Unit & Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run test:api
+      - run: npm run test:web
+
+  full-stack-e2e:
+    name: Full-Stack E2E Tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    env:
+      JWT_SECRET: ci-test-jwt-secret-not-for-production
+      FIELD_ENCRYPTION_KEY: ci-test-encryption-key-32chars!!
+      FULL_STACK: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Start stack
+        run: docker compose up -d --wait --wait-timeout 120
+      - name: Run acceptance script
+        run: bash scripts/acceptance-test.sh http://localhost:3000
+      - name: Run E2E tests (FULL_STACK=true)
+        run: npm run test:e2e
+      - name: Upload E2E artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results
+          path: |
+            apps/web/playwright-report/
+            apps/web/test-results/
+          retention-days: 14
+      - name: Tear down stack
+        if: always()
+        run: docker compose down -v

@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Req, UsePipes } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Body, Param, Req, UsePipes } from '@nestjs/common';
 import { Request } from 'express';
 import { AuthService } from '../../core/application/use-cases/auth.service';
 import { Public } from '../decorators/public.decorator';
@@ -38,5 +38,37 @@ export class AuthController {
   async me(@CurrentUser() user: UserDto) {
     const result = await this.authService.getMe(user.id);
     return { data: result };
+  }
+
+  @Get('devices')
+  async listDevices(@CurrentUser() user: UserDto) {
+    const devices = await this.authService.getUserDevices(user.id);
+    return {
+      data: devices.map((d) => ({
+        id: d.id,
+        fingerprint: d.fingerprint,
+        isTrusted: d.isTrusted,
+        firstSeenAt: d.firstSeenAt.toISOString(),
+        lastSeenAt: d.lastSeenAt.toISOString(),
+      })),
+    };
+  }
+
+  @Post('devices/:fingerprint/trust')
+  async trustDevice(
+    @CurrentUser() user: UserDto,
+    @Param('fingerprint') fingerprint: string,
+  ) {
+    await this.authService.trustDevice(user.id, fingerprint);
+    return { message: 'Device marked as trusted' };
+  }
+
+  @Delete('devices/:fingerprint/trust')
+  async revokeDevice(
+    @CurrentUser() user: UserDto,
+    @Param('fingerprint') fingerprint: string,
+  ) {
+    await this.authService.revokeDevice(user.id, fingerprint);
+    return { message: 'Device trust revoked' };
   }
 }

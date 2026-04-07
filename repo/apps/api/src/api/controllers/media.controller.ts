@@ -5,16 +5,37 @@ import {
   Res,
   NotFoundException,
 } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { Response } from 'express';
 import { Public } from '../decorators/public.decorator';
+import { MediaAssetEntity } from '../../infrastructure/persistence/entities/media-asset.entity';
 import * as fs from 'fs';
 import * as path from 'path';
+
+/** Extension-based MIME fallback for files not tracked in the database. */
+const EXTENSION_MIME_MAP: Record<string, string> = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+  '.mp3': 'audio/mpeg',
+  '.wav': 'audio/wav',
+  '.ogg': 'audio/ogg',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+};
 
 @Controller('media')
 export class MediaController {
   private readonly storagePath: string;
 
-  constructor() {
+  constructor(
+    @InjectRepository(MediaAssetEntity)
+    private readonly mediaAssetRepo: Repository<MediaAssetEntity>,
+  ) {
     this.storagePath = process.env.MEDIA_STORAGE_PATH || 'data/media';
   }
 
@@ -35,23 +56,26 @@ export class MediaController {
       throw new NotFoundException('File not found');
     }
 
-    // Determine content type from extension
-    const ext = path.extname(safeName).toLowerCase();
-    const mimeTypes: Record<string, string> = {
-      '.jpg': 'image/jpeg',
-      '.jpeg': 'image/jpeg',
-      '.png': 'image/png',
-      '.gif': 'image/gif',
-      '.webp': 'image/webp',
-      '.svg': 'image/svg+xml',
-      '.mp3': 'audio/mpeg',
-      '.wav': 'audio/wav',
-      '.ogg': 'audio/ogg',
-      '.mp4': 'video/mp4',
-      '.webm': 'video/webm',
-    };
+    // Prefer the authoritative MIME type stored at upload time, fall back to extension guess
+    let contentType: string | undefined;
+    const asset = await this.mediaAssetRepo.findOne({
+      where: { filePath: resolvedPath },
+    });
+    if (!asset) {
+      // Also try matching by the original multer-generated path (relative)
+      const relativeAsset = await this.mediaAssetRepo.findOne({
+        where: { filePath },
+      });
+      contentType = relativeAsset?.mimeType;
+    } else {
+      contentType = asset.mimeType;
+    }
 
-    const contentType = mimeTypes[ext] || 'application/octet-stream';
+    if (!contentType) {
+      const ext = path.extname(safeName).toLowerCase();
+      contentType = EXTENSION_MIME_MAP[ext] || 'application/octet-stream';
+    }
+
     res.setHeader('Content-Type', contentType);
     res.setHeader('Cache-Control', 'public, max-age=86400');
 

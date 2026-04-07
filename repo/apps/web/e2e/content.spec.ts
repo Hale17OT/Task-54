@@ -52,9 +52,17 @@ test.describe('Content - Patient View', () => {
 });
 
 test.describe('Content - Access Control', () => {
-  test('staff sees Access Denied on content creation (admin-only)', async ({ page }) => {
+  test('staff can access content creation (staff + admin allowed)', async ({ page }) => {
     test.skip(!fullStackAvailable, 'Requires backend');
     await loginAs(page, 'staff1', 'Staff12345678!');
+    await page.goto('/content/new');
+    await expect(page.getByLabel('Title')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Access Denied')).not.toBeVisible();
+  });
+
+  test('patient sees Access Denied on content creation', async ({ page }) => {
+    test.skip(!fullStackAvailable, 'Requires backend');
+    await loginAs(page, 'patient1', 'Patient12345!');
     await page.goto('/content/new');
     await expect(page.getByText('Access Denied')).toBeVisible({ timeout: 5000 });
   });

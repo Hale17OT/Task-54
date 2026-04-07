@@ -18925,6 +18925,16 @@
         "timestamp": null,
         "data": null
       }
-    ]
+    ],
+    "subagents": [],
+    "merge_warnings": [],
+    "merge_stats": {
+      "main_messages": 602,
+      "subagent_messages": 0,
+      "merged_messages": 602,
+      "subagent_count": 0,
+      "has_subagents": false,
+      "source_root": "E:\\Hale\\Coding\\Eaglepoint\\Task-54\\sessions"
+    }
   }
 }

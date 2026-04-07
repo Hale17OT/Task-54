@@ -88,7 +88,7 @@ export class NotificationSchedulerService {
       if (payments.length > 0) {
         const canSend = await this.notificationService.canDeliver(
           order.patientId,
-          `overdue-${order.id}`,
+          order.id,
         );
 
         if (canSend) {
@@ -122,7 +122,7 @@ export class NotificationSchedulerService {
 
       const canSend = await this.notificationService.canDeliver(
         reservation.enrollment.patientId,
-        `pickup-${reservation.id}`,
+        reservation.id,
       );
 
       if (canSend) {

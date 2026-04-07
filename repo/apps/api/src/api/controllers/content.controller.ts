@@ -9,6 +9,7 @@ import {
   UsePipes,
   UseInterceptors,
   UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ContentService } from '../../core/application/use-cases/content.service';
@@ -27,6 +28,7 @@ import type {
 } from '@checc/shared/schemas/content.schema';
 import type { UserDto } from '@checc/shared/types/auth.types';
 import { UserRole } from '@checc/shared/constants/roles';
+import { MEDIA_LIMITS } from '@checc/shared/constants/limits';
 
 @Controller('content')
 export class ContentController {
@@ -111,7 +113,19 @@ export class ContentController {
 
   @Post(':id/media')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  @UseInterceptors(FileInterceptor('file', { dest: process.env.MEDIA_STORAGE_PATH || 'data/media' }))
+  @UseInterceptors(FileInterceptor('file', {
+    dest: process.env.MEDIA_STORAGE_PATH || 'data/media',
+    limits: {
+      fileSize: MEDIA_LIMITS.MAX_FILE_SIZE_BYTES,
+    },
+    fileFilter: (_req: unknown, file: { mimetype: string }, cb: (err: Error | null, accept: boolean) => void) => {
+      if ((MEDIA_LIMITS.ALLOWED_MIME_TYPES as readonly string[]).includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new BadRequestException(`File type ${file.mimetype} is not allowed. Accepted types: ${MEDIA_LIMITS.ALLOWED_MIME_TYPES.join(', ')}`), false);
+      }
+    },
+  }))
   async uploadMedia(
     @Param('id') id: string,
     @UploadedFile() file: Express.Multer.File,

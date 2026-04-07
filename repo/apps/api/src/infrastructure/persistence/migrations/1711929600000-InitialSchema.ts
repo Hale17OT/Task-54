@@ -305,7 +305,7 @@ export class InitialSchema1711929600000 implements MigrationInterface {
       CREATE TABLE "notification_delivery_log" (
         "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         "notification_type" VARCHAR(50) NOT NULL,
-        "reference_id" UUID NOT NULL,
+        "reference_id" VARCHAR(100) NOT NULL,
         "user_id" UUID NOT NULL REFERENCES "users"("id"),
         "delivered_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )

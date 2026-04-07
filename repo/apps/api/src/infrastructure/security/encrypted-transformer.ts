@@ -22,8 +22,8 @@ export const encryptedTransformer = {
     try {
       return decrypt(value);
     } catch {
-      // Read-side fallback: tolerate plaintext from pre-encryption data or test writes
-      return value;
+      if (isTestEnv) return value;
+      throw new Error('Decryption failed — data may be corrupted or FIELD_ENCRYPTION_KEY is incorrect');
     }
   },
 };
@@ -49,7 +49,10 @@ export const encryptedJsonTransformer = {
     try {
       return JSON.parse(decrypt(value));
     } catch {
-      try { return JSON.parse(value); } catch { return null; }
+      if (isTestEnv) {
+        try { return JSON.parse(value); } catch { return null; }
+      }
+      throw new Error('Decryption failed — data may be corrupted or FIELD_ENCRYPTION_KEY is incorrect');
     }
   },
 };

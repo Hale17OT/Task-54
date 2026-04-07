@@ -34,16 +34,16 @@ services:
       DATABASE_NAME: ${POSTGRES_DB:-checc}
       DATABASE_USER: ${POSTGRES_USER:-checc}
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-checc_dev_password}
-      JWT_SECRET: ${JWT_SECRET:-checc_jwt_secret_dev_only_change_in_prod}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1h}
       JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
-      FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:-a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4}
+      FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:?FIELD_ENCRYPTION_KEY must be set}
       PDF_STORAGE_PATH: /app/data/pdfs
       MEDIA_STORAGE_PATH: /app/data/media
       LOG_LEVEL: ${LOG_LEVEL:-info}
       RUN_MIGRATIONS: 'true'
       RUN_SEED: ${RUN_SEED:-true}
-      RATE_LIMIT_DISABLED: ${RATE_LIMIT_DISABLED:-true}
+      RATE_LIMIT_DISABLED: ${RATE_LIMIT_DISABLED:-false}
     ports:
       - '${API_PORT:-3000}:3000'
     volumes:

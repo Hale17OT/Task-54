@@ -15,7 +15,7 @@ export class NotificationDeliveryLogEntity {
   @Column({ name: 'notification_type', type: 'varchar', length: 50 })
   notificationType!: string;
 
-  @Column({ name: 'reference_id', type: 'uuid', nullable: true })
+  @Column({ name: 'reference_id', type: 'varchar', length: 100, nullable: true })
   referenceId!: string | null;
 
   @Column({ name: 'user_id', type: 'uuid' })

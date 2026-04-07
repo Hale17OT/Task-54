@@ -12,10 +12,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       ignoreExpiration: false,
       secretOrKey: (() => {
         const secret = process.env.JWT_SECRET;
-        if (!secret && process.env.NODE_ENV === 'production') {
-          throw new Error('JWT_SECRET environment variable must be set in production');
+        if (!secret) {
+          if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+            return 'checc_jwt_secret_dev_only_change_in_prod';
+          }
+          throw new Error('JWT_SECRET environment variable must be set in non-development environments');
         }
-        return secret || 'checc_jwt_secret_dev_only_change_in_prod';
+        return secret;
       })(),
     });
   }

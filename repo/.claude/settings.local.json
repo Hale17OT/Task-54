@@ -35,7 +35,8 @@
       "Bash(xargs grep:*)",
       "Bash(find:*)",
       "Bash(timeout 8 npx nest start)",
-      "Bash(timeout 8 npx nest start --watch)"
+      "Bash(timeout 8 npx nest start --watch)",
+      "Bash(xargs ls:*)"
     ]
   }
 }

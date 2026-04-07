@@ -2,9 +2,14 @@ import { DataSource } from 'typeorm';
 import { AppDataSource } from './data-source';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { encrypt } from '../security/encryption.util';
 
 function hashEmail(email: string): string {
   return crypto.createHash('sha256').update(email.toLowerCase().trim()).digest('hex');
+}
+
+function encryptEmail(email: string): string {
+  return encrypt(email);
 }
 
 /**
@@ -33,16 +38,22 @@ export async function runSeed(dataSource: DataSource): Promise<void> {
     const reviewerHash = await bcrypt.hash('Reviewer12345!', 10);
 
     // Users (email_hash is deterministic SHA-256 for unique lookup)
+    // Emails are encrypted before insertion to maintain encryption-at-rest guarantee
     await queryRunner.query(`
       INSERT INTO "users" ("id", "username", "email", "email_hash", "password_hash", "role", "can_approve_refunds", "full_name")
       VALUES
-        ('00000000-0000-0000-0000-000000000001', 'admin', 'admin@checc.local', $5, $1, 'admin', FALSE, 'System Administrator'),
-        ('00000000-0000-0000-0000-000000000002', 'staff1', 'staff1@checc.local', $6, $2, 'staff', FALSE, 'Jane Staff'),
-        ('00000000-0000-0000-0000-000000000003', 'supervisor', 'supervisor@checc.local', $7, $2, 'staff', TRUE, 'Bob Supervisor'),
-        ('00000000-0000-0000-0000-000000000004', 'patient1', 'patient1@checc.local', $8, $3, 'patient', FALSE, 'Alice Patient'),
-        ('00000000-0000-0000-0000-000000000005', 'reviewer1', 'reviewer1@checc.local', $9, $4, 'reviewer', FALSE, 'Dr. Carol Reviewer')
+        ('00000000-0000-0000-0000-000000000001', 'admin', $5, $10, $1, 'admin', FALSE, 'System Administrator'),
+        ('00000000-0000-0000-0000-000000000002', 'staff1', $6, $11, $2, 'staff', FALSE, 'Jane Staff'),
+        ('00000000-0000-0000-0000-000000000003', 'supervisor', $7, $12, $2, 'staff', TRUE, 'Bob Supervisor'),
+        ('00000000-0000-0000-0000-000000000004', 'patient1', $8, $13, $3, 'patient', FALSE, 'Alice Patient'),
+        ('00000000-0000-0000-0000-000000000005', 'reviewer1', $9, $14, $4, 'reviewer', FALSE, 'Dr. Carol Reviewer')
     `, [
       passwordHash, staffHash, patientHash, reviewerHash,
+      encryptEmail('admin@checc.local'),
+      encryptEmail('staff1@checc.local'),
+      encryptEmail('supervisor@checc.local'),
+      encryptEmail('patient1@checc.local'),
+      encryptEmail('reviewer1@checc.local'),
       hashEmail('admin@checc.local'),
       hashEmail('staff1@checc.local'),
       hashEmail('supervisor@checc.local'),

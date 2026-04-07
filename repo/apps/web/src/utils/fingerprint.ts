@@ -90,7 +90,16 @@ export async function generateFingerprint(): Promise<string> {
     const combined = `${canvas}|${audio}|${hardware}`;
     return await sha256(combined);
   } catch {
-    // Fingerprinting failed (e.g., insecure context) — return a basic fallback
-    return Date.now().toString(16);
+    // Fingerprinting failed — use deterministic local attributes as fallback
+    const fallbackAttrs = [
+      navigator.userAgent,
+      navigator.language,
+      navigator.platform,
+      screen.width,
+      screen.height,
+      screen.colorDepth,
+      Intl.DateTimeFormat().resolvedOptions().timeZone,
+    ].join('|');
+    return await sha256(fallbackAttrs);
   }
 }

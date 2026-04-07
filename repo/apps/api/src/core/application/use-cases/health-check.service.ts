@@ -391,7 +391,7 @@ export class HealthCheckService {
     };
 
     if (version) {
-      dto.version = this.toVersionDto(version);
+      dto.currentVersionData = this.toVersionDto(version);
     }
 
     return dto;

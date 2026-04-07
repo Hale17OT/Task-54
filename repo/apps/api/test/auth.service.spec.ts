@@ -5,6 +5,7 @@ import { UnauthorizedException, ConflictException, ForbiddenException } from '@n
 import * as bcrypt from 'bcrypt';
 import { AuthService } from '../src/core/application/use-cases/auth.service';
 import { LoginAttemptEntity } from '../src/infrastructure/persistence/entities/login-attempt.entity';
+import { DeviceFingerprintEntity } from '../src/infrastructure/persistence/entities/device-fingerprint.entity';
 import { USER_REPOSITORY } from '../src/core/application/ports/user.repository.port';
 import { CaptchaService } from '../src/infrastructure/security/captcha.service';
 import { AnomalyDetectorService } from '../src/core/application/use-cases/anomaly-detector.service';
@@ -13,6 +14,7 @@ describe('AuthService', () => {
   let service: AuthService;
   let userRepo: Record<string, jest.Mock>;
   let loginAttemptRepo: Record<string, jest.Mock>;
+  let deviceFingerprintRepo: Record<string, jest.Mock>;
   let jwtService: { sign: jest.Mock };
 
   const mockUser = {
@@ -46,6 +48,13 @@ describe('AuthService', () => {
       count: jest.fn().mockResolvedValue(0),
     };
 
+    deviceFingerprintRepo = {
+      findOne: jest.fn().mockResolvedValue(null),
+      count: jest.fn().mockResolvedValue(0),
+      create: jest.fn().mockImplementation((data) => data),
+      save: jest.fn(),
+    };
+
     jwtService = {
       sign: jest.fn().mockReturnValue('mock.jwt.token'),
     };
@@ -55,6 +64,7 @@ describe('AuthService', () => {
         AuthService,
         { provide: USER_REPOSITORY, useValue: userRepo },
         { provide: getRepositoryToken(LoginAttemptEntity), useValue: loginAttemptRepo },
+        { provide: getRepositoryToken(DeviceFingerprintEntity), useValue: deviceFingerprintRepo },
         { provide: JwtService, useValue: jwtService },
         { provide: CaptchaService, useValue: { verify: jest.fn().mockResolvedValue(true), generate: jest.fn() } },
         { provide: AnomalyDetectorService, useValue: { checkBulkRegistration: jest.fn().mockResolvedValue(false), checkPromoAbuse: jest.fn().mockResolvedValue(false), checkRepeatedRefunds: jest.fn().mockResolvedValue(false) } },
@@ -140,7 +150,7 @@ describe('AuthService', () => {
       userRepo.findByUsername.mockResolvedValue(mockUser);
 
       const result = await service.login(
-        { username: 'testuser', password: 'ValidPass123!' },
+        { username: 'testuser', password: 'ValidPass123!', deviceFingerprint: 'fp-abc123' },
         '127.0.0.1',
       );
 
@@ -148,11 +158,17 @@ describe('AuthService', () => {
       expect(result.user.username).toBe('testuser');
     });
 
+    it('should throw on missing device fingerprint', async () => {
+      await expect(
+        service.login({ username: 'testuser', password: 'ValidPass123!' } as any, '127.0.0.1'),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
     it('should throw on invalid username', async () => {
       userRepo.findByUsername.mockResolvedValue(null);
 
       await expect(
-        service.login({ username: 'nobody', password: 'any' }, '127.0.0.1'),
+        service.login({ username: 'nobody', password: 'any', deviceFingerprint: 'fp-abc123' }, '127.0.0.1'),
       ).rejects.toThrow(UnauthorizedException);
     });
 
@@ -160,7 +176,7 @@ describe('AuthService', () => {
       userRepo.findByUsername.mockResolvedValue(mockUser);
 
       await expect(
-        service.login({ username: 'testuser', password: 'wrong' }, '127.0.0.1'),
+        service.login({ username: 'testuser', password: 'wrong', deviceFingerprint: 'fp-abc123' }, '127.0.0.1'),
       ).rejects.toThrow(UnauthorizedException);
     });
 
@@ -169,7 +185,7 @@ describe('AuthService', () => {
       userRepo.findByUsername.mockResolvedValue(lockedUser);
 
       await expect(
-        service.login({ username: 'testuser', password: 'ValidPass123!' }, '127.0.0.1'),
+        service.login({ username: 'testuser', password: 'ValidPass123!', deviceFingerprint: 'fp-abc123' }, '127.0.0.1'),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -178,7 +194,7 @@ describe('AuthService', () => {
       userRepo.findByUsername.mockResolvedValue(inactive);
 
       await expect(
-        service.login({ username: 'testuser', password: 'ValidPass123!' }, '127.0.0.1'),
+        service.login({ username: 'testuser', password: 'ValidPass123!', deviceFingerprint: 'fp-abc123' }, '127.0.0.1'),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -192,7 +208,7 @@ describe('AuthService', () => {
       userRepo.update.mockResolvedValue(mockUser);
 
       await expect(
-        service.login({ username: 'testuser', password: 'wrong' }, '127.0.0.1'),
+        service.login({ username: 'testuser', password: 'wrong', deviceFingerprint: 'fp-abc123' }, '127.0.0.1'),
       ).rejects.toThrow(UnauthorizedException);
 
       expect(userRepo.update).toHaveBeenCalledWith(
@@ -205,7 +221,7 @@ describe('AuthService', () => {
       userRepo.findByUsername.mockResolvedValue(mockUser);
 
       await service.login(
-        { username: 'testuser', password: 'ValidPass123!' },
+        { username: 'testuser', password: 'ValidPass123!', deviceFingerprint: 'fp-abc123' },
         '192.168.1.1',
       );
 

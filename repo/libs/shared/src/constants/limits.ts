@@ -27,6 +27,22 @@ export const HEALTH_CHECK_LIMITS = {
   SIGNATURE_SLA_HOURS: 24,
 } as const;
 
+export const MEDIA_LIMITS = {
+  MAX_FILE_SIZE_BYTES: 10 * 1024 * 1024, // 10 MB
+  ALLOWED_MIME_TYPES: [
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'image/svg+xml',
+    'audio/mpeg',
+    'audio/wav',
+    'audio/ogg',
+    'video/mp4',
+    'video/webm',
+  ],
+} as const;
+
 export const CAPTCHA_LIMITS = {
   EXPIRY_MINUTES: 5,
   MAX_CONSECUTIVE_FAILURES: 5,
