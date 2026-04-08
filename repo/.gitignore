@@ -12,3 +12,4 @@ playwright-report/
 test-results/
 .env.example
 .temp/
+.claude/
