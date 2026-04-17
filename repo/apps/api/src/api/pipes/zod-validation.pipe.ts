@@ -6,8 +6,13 @@ import { ErrorCodes } from '@checc/shared/constants/error-codes';
 export class ZodValidationPipe implements PipeTransform {
   constructor(private schema?: ZodSchema) {}
 
-  transform(value: unknown) {
+  transform(value: unknown, metadata?: { type?: string; metatype?: unknown; data?: string }) {
     if (!this.schema) return value;
+    // @UsePipes attaches the pipe to every parameter on a handler. Only
+    // validate the request body — other parameter sources (custom decorators
+    // like @CurrentUser, @Param, @Query) carry unrelated values that won't
+    // match the body schema.
+    if (metadata && metadata.type !== 'body') return value;
 
     try {
       return this.schema.parse(value);

@@ -163,10 +163,12 @@ export class EnrollmentService {
 
   async submit(enrollmentId: string, userId: string) {
     return this.dataSource.transaction(async (manager) => {
-      // Lock enrollment to prevent duplicate submissions
+      // Lock the enrollment row to prevent duplicate submissions. Postgres
+      // forbids `FOR UPDATE` on the nullable side of an outer join, so we
+      // load relations separately rather than via TypeORM's `relations`
+      // option (which generates a LEFT JOIN).
       const enrollment = await manager.findOne(EnrollmentEntity, {
         where: { id: enrollmentId },
-        relations: ['serviceLines'],
         lock: { mode: 'pessimistic_write' },
       });
 
@@ -176,6 +178,10 @@ export class EnrollmentService {
           errorCode: ErrorCodes.ENROLLMENT_NOT_FOUND,
         });
       }
+
+      enrollment.serviceLines = await manager.find(EnrollmentServiceLineEntity, {
+        where: { enrollmentId: enrollment.id },
+      });
 
       this.assertOwnership(enrollment, userId);
 

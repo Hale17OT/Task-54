@@ -13,3 +13,4 @@ test-results/
 .env.example
 .temp/
 .claude/
+logs/

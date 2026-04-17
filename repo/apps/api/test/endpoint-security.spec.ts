@@ -46,11 +46,18 @@ function signToken(payload: Record<string, unknown>): string {
 }
 
 /**
- * Endpoint-level security integration tests.
+ * Endpoint-level security wiring tests (NO database required).
  *
  * These boot real controllers with the actual guard pipeline (JwtAuthGuard, RolesGuard,
  * RateLimitGuard) to verify route-level authorization constraints are wired correctly.
- * Service dependencies are mocked to avoid DB requirements.
+ * Service dependencies ARE mocked here — this is intentional. The goal of THIS file is
+ * to verify guard wiring without needing a database.
+ *
+ * For full no-mock route coverage of all 63 production endpoints (real services + DB),
+ * see test/e2e/endpoints.e2e.spec.ts. That suite is the canonical coverage source and
+ * runs in the docker-compose.test.yml flow.
+ *
+ * All routes use the production /api global prefix to match main.ts.
  */
 describe('Endpoint Security - Real Controller Wiring', () => {
   const request = (supertest as any).default || supertest;
@@ -80,6 +87,7 @@ describe('Endpoint Security - Real Controller Wiring', () => {
       }).compile();
 
       app = moduleFixture.createNestApplication();
+      app.setGlobalPrefix('api');
       await app.init();
     }, 15000);
 
@@ -88,34 +96,34 @@ describe('Endpoint Security - Real Controller Wiring', () => {
     });
 
     it('returns 401 without token', async () => {
-      const res = await request(app.getHttpServer()).get('/templates');
+      const res = await request(app.getHttpServer()).get('/api/templates');
       expect(res.status).toBe(401);
     });
 
     it('returns 403 for patient role', async () => {
       const res = await request(app.getHttpServer())
-        .get('/templates')
+        .get('/api/templates')
         .set('Authorization', `Bearer ${patientToken}`);
       expect(res.status).toBe(403);
     });
 
     it('returns 200 for staff role', async () => {
       const res = await request(app.getHttpServer())
-        .get('/templates')
+        .get('/api/templates')
         .set('Authorization', `Bearer ${staffToken}`);
       expect(res.status).toBe(200);
     });
 
     it('returns 200 for admin role', async () => {
       const res = await request(app.getHttpServer())
-        .get('/templates')
+        .get('/api/templates')
         .set('Authorization', `Bearer ${adminToken}`);
       expect(res.status).toBe(200);
     });
 
     it('returns 200 for reviewer role', async () => {
       const res = await request(app.getHttpServer())
-        .get('/templates')
+        .get('/api/templates')
         .set('Authorization', `Bearer ${reviewerToken}`);
       expect(res.status).toBe(200);
     });
@@ -155,6 +163,7 @@ describe('Endpoint Security - Real Controller Wiring', () => {
       }).compile();
 
       app = moduleFixture.createNestApplication();
+      app.setGlobalPrefix('api');
       await app.init();
     }, 15000);
 
@@ -164,7 +173,7 @@ describe('Endpoint Security - Real Controller Wiring', () => {
 
     it('rejects login without deviceFingerprint (Zod validation)', async () => {
       const res = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/api/auth/login')
         .send({ username: 'testuser', password: 'ValidPass123!' });
       // Should be rejected by Zod validation (400) or by service (401)
       expect([400, 401, 422]).toContain(res.status);
@@ -172,7 +181,7 @@ describe('Endpoint Security - Real Controller Wiring', () => {
 
     it('accepts login with deviceFingerprint', async () => {
       const res = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/api/auth/login')
         .send({ username: 'testuser', password: 'ValidPass123!', deviceFingerprint: 'fp-abc123' });
       expect(res.status).toBe(201);
       expect(res.body.data).toBeDefined();
@@ -214,6 +223,7 @@ describe('Endpoint Security - Real Controller Wiring', () => {
       }).compile();
 
       app = moduleFixture.createNestApplication();
+      app.setGlobalPrefix('api');
       await app.init();
     }, 15000);
 
@@ -223,7 +233,7 @@ describe('Endpoint Security - Real Controller Wiring', () => {
 
     it('owner (patient-a) can access their enrollment', async () => {
       const res = await request(app.getHttpServer())
-        .get('/enrollments/enr-1')
+        .get('/api/enrollments/enr-1')
         .set('Authorization', `Bearer ${patientAToken}`);
       expect(res.status).toBe(200);
       expect(res.body.data.patientId).toBe('patient-a');
@@ -231,20 +241,20 @@ describe('Endpoint Security - Real Controller Wiring', () => {
 
     it('non-owner (patient-b) gets 403 on another patient enrollment', async () => {
       const res = await request(app.getHttpServer())
-        .get('/enrollments/enr-1')
+        .get('/api/enrollments/enr-1')
         .set('Authorization', `Bearer ${patientBToken}`);
       expect(res.status).toBe(403);
     });
 
     it('staff can access any enrollment', async () => {
       const res = await request(app.getHttpServer())
-        .get('/enrollments/enr-1')
+        .get('/api/enrollments/enr-1')
         .set('Authorization', `Bearer ${staffToken}`);
       expect(res.status).toBe(200);
     });
 
     it('unauthenticated request returns 401', async () => {
-      const res = await request(app.getHttpServer()).get('/enrollments/enr-1');
+      const res = await request(app.getHttpServer()).get('/api/enrollments/enr-1');
       expect(res.status).toBe(401);
     });
   });
@@ -282,6 +292,7 @@ describe('Endpoint Security - Real Controller Wiring', () => {
       }).compile();
 
       app = moduleFixture.createNestApplication();
+      app.setGlobalPrefix('api');
       await app.init();
     }, 15000);
 
@@ -291,28 +302,28 @@ describe('Endpoint Security - Real Controller Wiring', () => {
 
     it('owner (patient-a) can access their order', async () => {
       const res = await request(app.getHttpServer())
-        .get('/orders/ord-1')
+        .get('/api/orders/ord-1')
         .set('Authorization', `Bearer ${patientAToken}`);
       expect(res.status).toBe(200);
     });
 
     it('non-owner (patient-b) gets 403 on another patient order', async () => {
       const res = await request(app.getHttpServer())
-        .get('/orders/ord-1')
+        .get('/api/orders/ord-1')
         .set('Authorization', `Bearer ${patientBToken}`);
       expect(res.status).toBe(403);
     });
 
     it('staff can access any order', async () => {
       const res = await request(app.getHttpServer())
-        .get('/orders/ord-1')
+        .get('/api/orders/ord-1')
         .set('Authorization', `Bearer ${staffToken}`);
       expect(res.status).toBe(200);
     });
 
     it('non-owner cannot cancel another patient order', async () => {
       const res = await request(app.getHttpServer())
-        .post('/orders/ord-1/cancel')
+        .post('/api/orders/ord-1/cancel')
         .set('Authorization', `Bearer ${patientBToken}`);
       expect(res.status).toBe(403);
     });
@@ -356,6 +367,7 @@ describe('Endpoint Security - Real Controller Wiring', () => {
       }).compile();
 
       app = moduleFixture.createNestApplication();
+      app.setGlobalPrefix('api');
       await app.init();
     }, 15000);
 
@@ -365,42 +377,42 @@ describe('Endpoint Security - Real Controller Wiring', () => {
 
     it('owner (patient-a) can access their health check', async () => {
       const res = await request(app.getHttpServer())
-        .get('/health-checks/hc-1')
+        .get('/api/health-checks/hc-1')
         .set('Authorization', `Bearer ${patientAToken}`);
       expect(res.status).toBe(200);
     });
 
     it('non-owner (patient-b) gets 403 on another patient health check', async () => {
       const res = await request(app.getHttpServer())
-        .get('/health-checks/hc-1')
+        .get('/api/health-checks/hc-1')
         .set('Authorization', `Bearer ${patientBToken}`);
       expect(res.status).toBe(403);
     });
 
     it('staff can access any health check', async () => {
       const res = await request(app.getHttpServer())
-        .get('/health-checks/hc-1')
+        .get('/api/health-checks/hc-1')
         .set('Authorization', `Bearer ${staffToken}`);
       expect(res.status).toBe(200);
     });
 
     it('reviewer can access any health check', async () => {
       const res = await request(app.getHttpServer())
-        .get('/health-checks/hc-1')
+        .get('/api/health-checks/hc-1')
         .set('Authorization', `Bearer ${reviewerToken}`);
       expect(res.status).toBe(200);
     });
 
     it('non-owner patient gets 403 on version history', async () => {
       const res = await request(app.getHttpServer())
-        .get('/health-checks/hc-1/versions')
+        .get('/api/health-checks/hc-1/versions')
         .set('Authorization', `Bearer ${patientBToken}`);
       expect(res.status).toBe(403);
     });
 
     it('patient cannot create health checks (staff/admin only)', async () => {
       const res = await request(app.getHttpServer())
-        .post('/health-checks')
+        .post('/api/health-checks')
         .set('Authorization', `Bearer ${patientAToken}`)
         .send({ patientId: 'patient-a', templateId: 'tmpl-1', results: [] });
       expect(res.status).toBe(403);
@@ -408,7 +420,7 @@ describe('Endpoint Security - Real Controller Wiring', () => {
 
     it('patient cannot sign health checks (reviewer only)', async () => {
       const res = await request(app.getHttpServer())
-        .post('/health-checks/hc-1/sign')
+        .post('/api/health-checks/hc-1/sign')
         .set('Authorization', `Bearer ${patientAToken}`)
         .send({ username: 'pat', password: 'pass', versionNumber: 1 });
       expect(res.status).toBe(403);

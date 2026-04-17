@@ -1,234 +1,205 @@
-# CHECC - Community Health Enrollment & Clinic Commerce System
+Project type: fullstack
 
-A 100% offline, locally deployed platform for community health clinic management. Supports patient enrollment, service ordering with transparent pricing, clinical health-check reports with e-signature, cultural content publishing, in-app notifications, and comprehensive risk control.
+# CHECC — Community Health Enrollment & Clinic Commerce System
+
+Fullstack platform for community-health clinic operations: patient enrollment, service ordering with transparent pricing, clinical health-check reports with e-signature, cultural content publishing, in-app notifications, and risk control. Backend is NestJS (TypeScript) with PostgreSQL; frontend is React (Vite + shadcn/ui).
 
 ## Prerequisites
 
-- Docker & Docker Compose
-- Node.js >= 20 (for local development)
+- Docker Engine 24+ and Docker Compose v2
 
-## Quick Start (Docker)
+That is the only prerequisite. Everything else (Node.js, PostgreSQL, dependencies, migrations, seed data) is provisioned inside containers.
+
+## Start the stack
 
 ```bash
-docker compose up --build
+docker-compose up
 ```
 
-This starts:
-- **PostgreSQL** on port 5432
-- **API** (NestJS) on port 3000
-- **Web** (React) on port 5173
+This builds and starts:
 
-Database migrations and seed data run automatically on first start.
+| Service     | Container       | URL / Port                        |
+|-------------|-----------------|-----------------------------------|
+| PostgreSQL  | `checc-postgres` | localhost:5432                   |
+| API (Nest)  | `checc-api`     | http://localhost:3000             |
+| Web (React) | `checc-web`     | http://localhost:5173             |
 
-## Local Development
+On first start the API container automatically:
 
-### Option A: Docker for PostgreSQL only
+1. Runs database migrations (`RUN_MIGRATIONS=true`)
+2. Seeds catalog services, report templates, pricing rules, and demo users (`RUN_SEED=true`)
+
+To run in the background:
+
 ```bash
-npm install
-docker compose up postgres -d
-npm run dev:api
-npm run dev:web  # separate terminal
+docker-compose up -d
 ```
 
-### Option B: Fully local (no Docker)
+To stop and remove all containers + volumes:
+
 ```bash
-npm install
-
-# 1. Install and start PostgreSQL locally (port 5432)
-#    macOS: brew install postgresql@16 && brew services start postgresql@16
-#    Ubuntu: sudo apt install postgresql && sudo systemctl start postgresql
-#    Windows: Download from https://www.postgresql.org/download/
-
-# 2. Create database and user
-psql -U postgres -c "CREATE USER checc WITH PASSWORD 'checc_dev_password';"
-psql -U postgres -c "CREATE DATABASE checc OWNER checc;"
-
-# 3. Set environment variables (bash/zsh)
-export DATABASE_HOST=localhost
-export DATABASE_PORT=5432
-export DATABASE_NAME=checc
-export DATABASE_USER=checc
-export DATABASE_PASSWORD=checc_dev_password
-export JWT_SECRET=local_dev_jwt_secret
-export FIELD_ENCRYPTION_KEY=local_dev_encryption_key_32chars!!
-export RUN_MIGRATIONS=true
-export RUN_SEED=true
-
-# 3. Set environment variables (PowerShell — Windows)
-# $env:DATABASE_HOST='localhost'
-# $env:DATABASE_PORT='5432'
-# $env:DATABASE_NAME='checc'
-# $env:DATABASE_USER='checc'
-# $env:DATABASE_PASSWORD='checc_dev_password'
-# $env:JWT_SECRET='local_dev_jwt_secret'
-# $env:FIELD_ENCRYPTION_KEY='local_dev_encryption_key_32chars!!'
-# $env:RUN_MIGRATIONS='true'
-# $env:RUN_SEED='true'
-
-# 4. Start API (runs migrations + seed on first boot)
-npm run dev:api
-
-# 5. Start Web (separate terminal)
-npm run dev:web
-
-# 6. Smoke test
-curl http://localhost:3000/api/health    # API health check
-open http://localhost:5173               # Web login page
+docker-compose down -v
 ```
 
-### Automated Acceptance Test
+## Verify it works
+
 ```bash
-# After starting the stack (Docker or local), run:
-./scripts/acceptance-test.sh
-# Validates: API health, admin login, seed data (catalog, pricing, templates)
+# API health check
+curl http://localhost:3000/api/health
+
+# Web app
+open http://localhost:5173
 ```
 
-### Quick Smoke Test Checklist
-1. Open http://localhost:5173 — login page renders
-2. Login as `admin` / `Admin12345678!` — dashboard loads
-3. Navigate to Enrollments — list renders
-4. Navigate to Pricing Rules — rules from seed data visible
-5. Navigate to Risk Dashboard — stat cards render
+Sign in with the seeded admin credentials (see [Demo credentials](#demo-credentials)).
 
-## Testing
+## Run the tests (Docker only)
 
-### Frontend Acceptance (no backend needed)
+The full test suite — API unit, integration, end-to-end (real DB), web unit, and Playwright E2E — runs inside containers via a single command:
+
 ```bash
-npm run build:web           # Production build
-npm run test:web            # Unit + component tests (83 tests)
-npx playwright install chromium
-npm run test:e2e            # Standalone E2E (login page, route guards, redirects)
+docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from test-runner
+docker-compose -f docker-compose.test.yml down -v
 ```
 
-### Full-Stack Acceptance (mandatory for release — one Docker command)
+Or via the npm shortcut, which wraps the same compose flow:
+
 ```bash
-# Single command — builds everything, runs ALL tests (API + Web + E2E), tears down
-npm run test:docker
-
-# Or equivalently:
-docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from test-runner
-docker compose -f docker-compose.test.yml down -v
+docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from test-runner && \
+docker-compose -f docker-compose.test.yml down -v
 ```
 
-### Individual Test Commands
-```bash
-npm run test:api            # API unit + integration (201 tests)
-npm run test:web            # Web unit + component (83 tests)
-npm run test:e2e            # E2E standalone (2 always-on + 59 full-stack)
-./run_tests.sh              # All of the above + auto-detects backend for full-stack
-```
+What the test-runner exercises:
+
+- **API unit / service / pipe / guard tests** (Jest, ~278 tests)
+- **API end-to-end endpoint coverage** (`apps/api/test/e2e/endpoints.e2e.spec.ts`, 89 tests, real PostgreSQL, real controllers + guards + services + persistence — no service mocks)
+- **Web unit / component tests** (Vitest)
+- **Playwright E2E** against the running web container
+
+Exit code 0 = all suites passed.
+
+## Demo credentials
+
+Seeded automatically on first API container start.
+
+| Username     | Password           | Role     | Notes                            |
+|--------------|--------------------|----------|----------------------------------|
+| `admin`      | `Admin12345678!`   | admin    | Full system access               |
+| `staff1`     | `Staff12345678!`   | staff    | Standard staff                   |
+| `supervisor` | `Staff12345678!`   | staff    | Has `can_approve_refunds` flag   |
+| `patient1`   | `Patient12345!`    | patient  | Standard patient                 |
+| `reviewer1`  | `Reviewer12345!`   | reviewer | Clinical sign-off authority      |
+
+## API endpoints
+
+Base URL: `http://localhost:3000/api`. All routes are namespaced under `/api`. Auth uses Bearer JWT in the `Authorization` header (obtain via `POST /api/auth/login`).
+
+| # | Method | Path                                              | Auth          | Purpose                                         |
+|---|--------|---------------------------------------------------|---------------|-------------------------------------------------|
+| 1 | GET    | /api/health                                       | Public        | Liveness probe                                  |
+| 2 | POST   | /api/auth/register                                | Public        | Register a new patient                          |
+| 3 | POST   | /api/auth/login                                   | Public        | Issue access + refresh JWTs                     |
+| 4 | GET    | /api/auth/me                                      | JWT           | Current authenticated user                      |
+| 5 | GET    | /api/auth/devices                                 | JWT           | List own known devices                          |
+| 6 | POST   | /api/auth/devices/:fingerprint/trust              | JWT           | Mark device trusted                             |
+| 7 | DELETE | /api/auth/devices/:fingerprint/trust              | JWT           | Revoke device trust                             |
+| 8 | GET    | /api/catalog                                      | JWT           | List catalog services                           |
+| 9 | GET    | /api/catalog/:id                                  | JWT           | Single catalog service                          |
+| 10 | POST   | /api/content                                     | Staff/Admin   | Create article (DRAFT)                          |
+| 11 | PUT    | /api/content/:id                                 | Staff/Admin   | Update article                                  |
+| 12 | POST   | /api/content/:id/submit-review                   | Staff/Admin   | DRAFT → IN_REVIEW                               |
+| 13 | POST   | /api/content/:id/review                          | Admin         | Approve / reject submitted article              |
+| 14 | POST   | /api/content/:id/archive                         | Admin         | Archive article                                 |
+| 15 | GET    | /api/content/published                           | JWT           | List PUBLISHED articles                         |
+| 16 | GET    | /api/content                                     | Admin         | List all articles                               |
+| 17 | GET    | /api/content/:id/versions                        | Staff/Admin   | Article version history                         |
+| 18 | POST   | /api/content/:id/media                           | Staff/Admin   | Upload media asset (10 MB max, MIME-allowlisted) |
+| 19 | GET    | /api/content/:slug                               | Public        | Fetch article by slug                           |
+| 20 | POST   | /api/enrollments                                 | Patient       | Create enrollment (DRAFT)                       |
+| 21 | GET    | /api/enrollments                                 | JWT           | List own enrollments (staff/admin: all)         |
+| 22 | GET    | /api/enrollments/:id                             | JWT           | Enrollment detail                               |
+| 23 | PUT    | /api/enrollments/:id                             | JWT           | Update enrollment                               |
+| 24 | POST   | /api/enrollments/:id/submit                      | JWT           | DRAFT → SUBMITTED, creates order                |
+| 25 | POST   | /api/enrollments/:id/cancel                      | JWT           | Cancel non-active enrollment                    |
+| 26 | POST   | /api/health-checks                               | Staff/Admin   | Create health-check report (DRAFT)              |
+| 27 | GET    | /api/health-checks                               | JWT           | List reports                                    |
+| 28 | GET    | /api/health-checks/:id                           | JWT           | Report + current version                        |
+| 29 | PUT    | /api/health-checks/:id                           | Staff/Admin   | Update report → new version                     |
+| 30 | POST   | /api/health-checks/:id/submit-review             | Staff/Admin   | DRAFT → AWAITING_REVIEW                         |
+| 31 | POST   | /api/health-checks/:id/sign                      | Reviewer      | Re-auth + e-sign report                         |
+| 32 | GET    | /api/health-checks/:id/versions                  | JWT           | Report version history                          |
+| 33 | GET    | /api/health-checks/:id/pdf/:versionNumber        | JWT           | Download signed PDF                             |
+| 34 | GET    | /api/media/:filename                             | Public        | Serve uploaded media                            |
+| 35 | GET    | /api/notifications                               | JWT           | List own notifications                          |
+| 36 | PATCH  | /api/notifications/:id/read                      | JWT           | Mark one read                                   |
+| 37 | PATCH  | /api/notifications/read-all                      | JWT           | Mark all read                                   |
+| 38 | GET    | /api/notifications/unread-count                  | JWT           | Unread count                                    |
+| 39 | GET    | /api/notifications/throttle-status               | JWT           | Throttle config                                 |
+| 40 | GET    | /api/orders                                      | JWT           | List orders                                     |
+| 41 | GET    | /api/orders/by-enrollment/:enrollmentId          | JWT           | Order for an enrollment                         |
+| 42 | GET    | /api/orders/:id                                  | JWT           | Order detail                                    |
+| 43 | POST   | /api/orders/:id/cancel                           | JWT           | Cancel pending order                            |
+| 44 | POST   | /api/payments                                    | Staff/Admin   | Record payment                                  |
+| 45 | GET    | /api/payments/order/:orderId                     | Staff/Admin   | Payments for an order                           |
+| 46 | GET    | /api/payments/:id                                | Staff/Admin   | Payment detail                                  |
+| 47 | POST   | /api/payments/refund                             | Staff/Admin   | Issue refund (supervisor-gated)                 |
+| 48 | GET    | /api/payments                                    | Staff/Admin   | List all payments                               |
+| 49 | POST   | /api/pricing/rules                               | Admin         | Create pricing rule                             |
+| 50 | PUT    | /api/pricing/rules/:id                           | Admin         | Update pricing rule                             |
+| 51 | DELETE | /api/pricing/rules/:id                           | Admin         | Deactivate pricing rule                         |
+| 52 | GET    | /api/pricing/rules                               | Admin         | List pricing rules                              |
+| 53 | POST   | /api/pricing/compute                             | Patient/Staff/Admin | Preview pricing for an order              |
+| 54 | GET    | /api/pricing/audit/:orderId                      | Staff/Admin   | Discount audit trail                            |
+| 55 | GET    | /api/risk/ip-rules                               | Admin         | List IP rules                                   |
+| 56 | POST   | /api/risk/ip-rules                               | Admin         | Create IP allow/deny rule                       |
+| 57 | DELETE | /api/risk/ip-rules/:id                           | Admin         | Delete IP rule                                  |
+| 58 | GET    | /api/risk/events                                 | Admin         | List detected risk events                       |
+| 59 | GET    | /api/risk/incidents                              | Admin         | List incident tickets                           |
+| 60 | PATCH  | /api/risk/incidents/:id                          | Admin         | Update incident                                 |
+| 61 | GET    | /api/risk/captcha                                | Public        | Issue CAPTCHA challenge                         |
+| 62 | POST   | /api/risk/captcha/verify                         | Public        | Verify CAPTCHA answer                           |
+| 63 | GET    | /api/templates                                   | Staff/Admin/Reviewer | List health-check templates              |
+
+Source of truth: `apps/api/src/api/controllers/*.ts`. Schema definitions for request/response payloads live in `libs/shared/src/schemas/*.ts`.
+
+## Configuration
+
+`docker-compose.yml` reads variables from a `.env` file in the repo root. A working `.env` ships in the repo for local dev. Required variables:
+
+| Variable                | Purpose                                                        |
+|-------------------------|----------------------------------------------------------------|
+| `JWT_SECRET`            | Required. JWT signing key.                                     |
+| `FIELD_ENCRYPTION_KEY`  | Required. 32-byte AES key for at-rest field encryption.        |
+| `POSTGRES_PASSWORD`     | DB password (default `checc_dev_password` for local).          |
+| `RATE_LIMIT_DISABLED`   | Defaults to `false`. Only override in non-production.          |
+| `RUN_MIGRATIONS`        | Defaults to `true` in compose. Runs migrations at API startup. |
+| `RUN_SEED`              | Defaults to `true` in compose. Idempotent seed.                |
+
+See `.env.example` for production guidance.
 
 ## Architecture
 
-**Backend**: Hexagonal/Clean Architecture — domain logic decoupled from framework.
-**Frontend**: React SPA with shadcn/ui (Tailwind CSS + Radix UI), Zustand state management.
-**Shared**: TypeScript types and Zod schemas shared between frontend and backend.
+- **Backend**: NestJS, hexagonal layout (`apps/api/src/{api,core,infrastructure}`). TypeORM + PostgreSQL.
+- **Frontend**: React + Vite + shadcn/ui (Tailwind + Radix). Zustand state management.
+- **Shared**: Zod schemas, types, and constants in `libs/shared/src/`.
+- **Auth**: JWT bearer tokens, account lockout (5 failures / 15 min), CAPTCHA escalation, device-fingerprint step-up for unrecognized devices.
+- **Pricing**: Deterministic best-offer engine with exclusion groups and immutable discount audit trail.
+- **Reports**: Versioned health checks, reviewer e-signature with re-authentication, 24-hour signing SLA, SHA-256-checksummed PDF export.
+- **Risk**: IP allow/deny lists, per-action rate limiting, anomaly detection (bulk registration, repeated refunds, promo abuse), incident tickets.
+
+## Project layout
 
 ```
 repo/
 ├── apps/
-│   ├── api/                    # NestJS REST API
+│   ├── api/                    # NestJS REST API (port 3000)
 │   │   └── src/
 │   │       ├── api/            # Controllers, guards, pipes, decorators
-│   │       ├── core/           # Domain use cases and port interfaces
+│   │       ├── core/           # Domain use cases and ports
 │   │       └── infrastructure/ # TypeORM, logging, scheduling, security, PDF
-│   └── web/                    # React SPA (Vite + shadcn/ui)
-│       ├── src/
-│       │   ├── components/     # shadcn/ui components + domain components
-│       │   ├── pages/          # Route pages by module
-│       │   ├── stores/         # Zustand stores
-│       │   ├── api/            # API client layer
-│       │   └── utils/          # Offline storage, fingerprinting
-│       └── e2e/                # Playwright E2E tests
-├── libs/shared/                # Shared types, Zod schemas, constants
-├── docker-compose.yml          # PostgreSQL + API + Web
-├── run_tests.sh                # Canonical unified test runner
-└── .temp/devplan.md            # Full development plan
+│   └── web/                    # React SPA (port 5173)
+├── libs/shared/                # Shared Zod schemas, types, constants
+├── docker-compose.yml          # PostgreSQL + API + Web (production-style runtime)
+├── docker-compose.test.yml     # PostgreSQL + API + Web + test-runner (CI test flow)
+└── Dockerfile.test             # Image used by the test-runner container
 ```
-
-## Modules
-
-| Module | Description |
-|--------|-------------|
-| **Auth** | Registration (12+ char passwords), JWT login, account lockout (5 failures/15 min), role-based guards |
-| **Enrollment** | Draft→Submitted→Active workflow, service add-ons, seat quotas (60-min reservations) |
-| **Orders** | Order creation from enrollment, price snapshots, auto-cancel (30 min, cron every 5 min) |
-| **Pricing** | Deterministic best-offer engine, exclusion groups, immutable discount audit trail, line-level reasoning |
-| **Payments** | Offline recorded payments (cash/check/card), supervisor-gated refunds with reason codes |
-| **Health Checks** | Versioned reports, reference ranges, abnormal flags, reviewer e-signature (re-auth), 24h SLA compliance, PDF export with SHA-256 checksum |
-| **Notifications** | Due dates, overdue balances, hold pickups; 3-per-item-per-24h throttle |
-| **Content** | Articles/galleries/audio/video, draft→review→publish workflow, regex sensitive-word detection |
-| **Risk Control** | IP allow/deny, rate limiting (30 req/min), device fingerprinting, local CAPTCHA, anomaly detection, incident tickets |
-
-## Roles
-
-| Role | Capabilities |
-|------|-------------|
-| **Patient** | Browse content, create/submit enrollments, view own reports, receive notifications |
-| **Staff** | Record health checks, manage payments, process enrollments. `can_approve_refunds` flag for supervisor override |
-| **Reviewer** | Clinical sign-off on health-check report versions via e-signature |
-| **Admin** | Manage pricing rules, publish/withdraw content, monitor risk alerts, manage IP rules, view incidents |
-
-## API Endpoints
-
-Base URL: `http://localhost:3000/api`
-
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/health` | GET | Public | Health check |
-| `/auth/login` | POST | Public | Login |
-| `/auth/register` | POST | Public | Register |
-| `/auth/me` | GET | JWT | Current user |
-| `/catalog` | GET | JWT | List catalog services |
-| `/enrollments` | GET/POST | JWT | List/create enrollments |
-| `/enrollments/:id` | GET/PUT | JWT | Get/update enrollment |
-| `/enrollments/:id/submit` | POST | JWT | Submit enrollment |
-| `/orders` | GET | JWT | List orders |
-| `/orders/:id` | GET | JWT | Get order |
-| `/pricing/rules` | GET/POST/PUT/DELETE | Admin | Manage pricing rules |
-| `/pricing/compute` | POST | JWT | Preview pricing |
-| `/pricing/audit/:orderId` | GET | Staff/Admin | Discount audit trail |
-| `/payments` | GET/POST | Staff/Admin | List/record payments |
-| `/payments/refund` | POST | Staff/Admin | Initiate refund |
-| `/health-checks` | GET/POST/PUT | JWT | Health check CRUD |
-| `/health-checks/:id/sign` | POST | Reviewer | E-signature |
-| `/health-checks/:id/pdf/:v` | GET | JWT | Download PDF |
-| `/notifications` | GET | JWT | List notifications |
-| `/content` | GET/POST/PUT | JWT | Content CRUD |
-| `/content/:id/review` | POST | Admin | Review article |
-| `/risk/ip-rules` | GET/POST/DELETE | Admin | IP rules |
-| `/risk/events` | GET | Admin | Risk events |
-| `/risk/incidents` | GET/PATCH | Admin | Incident tickets |
-| `/risk/captcha` | GET/POST | Public | CAPTCHA challenge/verify |
-
-## Security
-
-- Passwords: 12+ characters with uppercase, lowercase, number, special character
-- Account lockout: 5 failed attempts → 15-minute lock
-- JWT authentication with configurable expiry
-- Role-based access control (global guards)
-- Object-level authorization (users access only their own data)
-- AES-256-GCM field encryption for sensitive data (phone, SSN, medical notes)
-- IP allow/deny lists with CIDR support
-- Per-action rate limiting (30 req/min default)
-- Device fingerprinting (Canvas + AudioContext + hardware)
-- Locally generated CAPTCHA challenges
-- Anomaly detection: promo abuse, bulk registration, repeated refunds
-- PII scrubbed from all logs (Winston structured logging)
-- PDFs stored locally with SHA-256 checksum validation
-
-## Environment Variables
-
-See `.env.example` for all configurable variables.
-
-## Seed Data (Development)
-
-| Username | Password | Role | Notes |
-|----------|----------|------|-------|
-| admin | Admin12345678! | Admin | Full system access |
-| staff1 | Staff12345678! | Staff | Standard staff |
-| supervisor | Staff12345678! | Staff | Has `can_approve_refunds` flag |
-| patient1 | Patient12345! | Patient | Standard patient |
-| reviewer1 | Reviewer12345! | Reviewer | Clinical sign-off |
-
-Seed also includes: 8 catalog services, 2 report templates, 3 pricing rules (10% off over $200, BOGO screenings, 50% off second item).

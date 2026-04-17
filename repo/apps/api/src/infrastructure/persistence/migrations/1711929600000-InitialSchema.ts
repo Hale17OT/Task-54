@@ -115,7 +115,7 @@ export class InitialSchema1711929600000 implements MigrationInterface {
         "final_total" NUMERIC(10,2) NOT NULL,
         "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        "auto_cancel_at" TIMESTAMPTZ NOT NULL
+        "auto_cancel_at" TIMESTAMPTZ
       )
     `);
     await queryRunner.query(`CREATE INDEX "idx_orders_patient" ON "orders"("patient_id", "status")`);
